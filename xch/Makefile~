@@ -1,0 +1,25 @@
+C_INCLUDES := -I../include/core \
+	-I../include/config \
+	-I../include/effects \
+	-I../include/images \
+	-I../include/utils \
+	-I../include/views \
+	-I../include/xml \
+	-I../include/gpu \
+	-I../gpu/include \
+	-I../include/utils/unix \
+	-I../samplecode
+
+VPATH = libs:../src/ports:../samplecode:../src/core:../src/utils/unix
+
+#generate debugging info
+CFLAGS = -g
+
+SRC_LIST := main.cpp 
+
+test-skia: $(SRC_LIST) ../out/libskia.a -lpthread -lz -lfreetype  -lpng
+	g++ $(C_INCLUDES) $(CFLAGS) $^ -o $@
+
+clean:
+#rm -rf ../out # Copied from ../Makefile
+#rm -rf out
