@@ -1,10 +1,10 @@
 # Simple makefile for skia library and test apps
 
 # setup our defaults
-CC := arm-linux-androideabi-gcc
-GPP := arm-linux-androideabi-g++
-#CC := gcc
-#GPP := g++
+#CC := arm-linux-androideabi-gcc
+#GPP := arm-linux-androideabi-g++
+CC := gcc
+GPP := g++
 C_INCLUDES := -Iinclude/config -Iinclude/core -Iinclude/effects -Iinclude/images -Iinclude/ports
 C_INCLUDES +=  -Iinclude/gpu -Iinclude/utils -Igpu/include -Isrc/core
 

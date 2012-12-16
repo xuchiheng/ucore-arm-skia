@@ -21,16 +21,12 @@ SRC_LIST := main.cpp
  
 .PHONY: all
 test: $(SRC_LIST) ../out/libskia.a
-	$(GPP) $(C_INCLUDES) $(CFLAGS)  $^ -L. -static -lpng -lz  -o $@ -T bionic.ld
+	$(GPP) $(C_INCLUDES) $(CFLAGS) $^ -o $@
 
 .PHONY: check
 check: $(SRC_LIST) libskia.a
-	g++ $(C_INCLUDES) $(CFLAGS)  -lpthread -lz -lfreetype  -lpng $^ -o $@  
+	g++ $(C_INCLUDES) $(CFLAGS)  -lpthread $^ -o $@
 
 .PHONY: clean
 clean:
 	rm -rf test check
-
-.PHONY: install
-install: test
-	cp test ../../../ucore_plus/ucore/src/user-ucore/_initial/
