@@ -1,29 +1,17 @@
-#include "SkBitmap.h"
-#include "SkDevice.h"
-#include "SkPaint.h"
-#include "SkRect.h"
-#include "SkImageEncoder.h"
-#include <stdio.h>
-
+#include <ulib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stat.h>
+#include <file.h>
+#include <dir.h>
 #include <unistd.h>
 #include <malloc.h>
-#include <assert.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-
-using namespace std;
+#include "goldfish_logo.h"
 
 #ifndef __u32
 #define __u32 uint32_t
 #endif
-
-#define cprintf printf
-#define sys_linux_mmap mmap
 
 struct fb_bitfield {
         __u32 offset;                   /* beginning of bitfield        */
@@ -80,8 +68,8 @@ static void logo_loop(){
     int i,j;
     int w = 800;
     int h = 600;
-    int x = (w - 100)/2;
-    int y = (h - 100)/2;
+    int x = (w - logo_width)/2;
+    int y = (h - logo_height)/2;
     int v = 2, u = 2;
 //以下打开framebuffer并映射内存
     fd = open("fb0:", O_RDWR);
@@ -94,73 +82,63 @@ static void logo_loop(){
     }
     close(fd);
     
-   // assert(logo_height < h && logo_width < w);
+    assert(logo_height < h && logo_width < w);
 
     int size = w*h*vinfo.bits_per_pixel/8;
 
     fd = open("fb0:", O_RDWR);
 //buf == 显存首地址，向里面写数据即可显示
-    unsigned short* buf = (unsigned short*)sys_linux_mmap(0, size,0,0, fd, 0);
+    unsigned short* buf = (unsigned short*)sys_linux_mmap(0, size, fd, 0);
     cprintf("linux_mmap %08x\n", buf);
     //close(fd);
 
     //unsigned short* buf = (unsigned short*)malloc(size);
     //assert(buf);
 //清屏
-    memset(buf, 0x1f, size);
+    memset(buf, 0x00, size);
+    while(1){
+      x += u;
+      y += v;
+      if(x<0){
+        x = 0;
+        u = -u;
+      }
+      else if(x+logo_width>=w){
+        x = w - logo_width -1;
+        u = -u;
+      }
+      if(y<0){
+        y = 0;
+        v = -v;
+      }
+      else if(y+logo_height>=h){
+        y = h - logo_height - 1;
+        v = -v;
+      }
 
+      //fd = open("fb0:", O_RDWR);
+      //cprintf("fd = %d\n", fd);
+      if(fd<0)
+        return ;
+      unsigned char pixel[4];
+      uint16_t color;
+      char * data = logo_header_data;
+//写数据，注意x y坐标和像素格式
+      for(i=y*w;i<w*(y+logo_height);i+=w){
+        for(j=x;j<x+logo_width;j++){
+          HEADER_PIXEL(data, pixel);
+          color = ((pixel[0]>>3)<<11)
+            |((pixel[1]>>2)<<5)
+            |((pixel[2]>>3));
+          buf[i + j] = color;
+        }
+      }
+      //write(fd, buf, size);
+      //close(fd);
+      sleep(2);
+    }
+
+    free(buf);
     close(fd);
 
-}
-
-
-int main()
-{
-       // Declare a raster bitmap, which has an integer width and height,
-       // and a format (config), and a pointer to the actual pixels.
-       // Bitmaps can be drawn into a SkCanvas, but they are also used to
-       // specify the target of a SkCanvas' drawing operations.
-		printf("start\n");
-       SkBitmap bitmap;
-       bitmap.setConfig(SkBitmap::kARGB_8888_Config, 200, 200);
-       bitmap.allocPixels();
-       bitmap.eraseColor(0);
-
-       // A Canvas encapsulates all of the state about drawing into a
-       // device (bitmap).  This includes a reference to the device itself,
-       // and a stack of matrix/clip values. For any given draw call (e.g.
-       // drawRect), the geometry of the object being drawn is transformed
-       // by the concatenation of all the matrices in the stack. The
-       // transformed geometry is clipped by the intersection of all of the
-// clips in the stack.
-       SkCanvas canvas(bitmap);
-
-       // SkPaint class holds the style and color information about how to
-       // draw geometries, text and bitmaps.
-       SkPaint paint;
-       // SkIRect holds four 32 bit integer coordinates for a rectangle.
-       SkRect r;
-       paint.setARGB(255, 255, 0, 0);
-       r.set(25, 25, 145, 145);
-       canvas.drawRect(r, paint);
-       paint.setARGB(255, 0, 255, 0);
-       r.offset(20, 20);
-       canvas.drawRect(r, paint);
-       paint.setARGB(255, 0, 0, 255);
-       r.offset(20, 20);
-       canvas.drawRect(r, paint);
-       /*for (int i=0;i<20;i++) {
-           for (int j=0;j<20;j++) {
-        	   u_int32_t ans=bitmap.getColor(i,j);
-        	   printf("%d",((ans >> 0) & (( 1 << 8 ) - 1)));
-           }
-           printf("\n");
-       }*/
-
-//	SkImageEncoder is the base class for encoding compressed images
-//	from a specific SkBitmap.
-	printf("%d\n", SkImageEncoder::EncodeFile("snapshot.png", bitmap,
-		SkImageEncoder::kPNG_Type,
-		100));
-       return 0;
 }
