@@ -21,9 +21,9 @@ CFLAGS = -g
 SRC_LIST := main.cpp
  
 .PHONY: all
-test: $(SRC_LIST) ../out/libskia.a libpng.a libz.a
-	$(GPP) $(C_INCLUDES) $(CFLAGS)  $^  -o $@ -T bionic.ld
-	cp test ../../../ucore_plus/ucore/src/user-ucore/_initial/
+test: $(SRC_LIST) ../out/libskia.a ../lib/libpng.a ../lib/libz.a
+	$(GPP) $(C_INCLUDES) $(CFLAGS)  $^  -o $@ -T ../bionic.ld
+	cp test ~/ucore_plus/ucore/src/user-ucore/_initial/
 
 .PHONY: check
 check: $(SRC_LIST) libskia.a
@@ -33,6 +33,3 @@ check: $(SRC_LIST) libskia.a
 clean:
 	rm -rf test check
 
-.PHONY: install
-install: test
-	cp test ../../../ucore_plus/ucore/src/user-ucore/_initial/

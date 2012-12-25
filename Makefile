@@ -5,7 +5,7 @@ CC := arm-linux-androideabi-gcc
 GPP := arm-linux-androideabi-g++
 #CC := gcc
 #GPP := g++
-C_INCLUDES := -Iinclude/config -Iinclude/core -Iinclude/effects -Iinclude/images -Iinclude/ports
+C_INCLUDES := -Iinclude/config -Iinclude/core -Iinclude/effects -Iinclude/images -Iinclude/ports -Iinclude/pdf
 C_INCLUDES +=  -Iinclude/gpu -Iinclude/utils -Igpu/include -Isrc/core
 
 CFLAGS := -Wall -fstrict-aliasing
@@ -97,6 +97,21 @@ JUST_COMPILE_OBJS := $(addprefix out/, $(JUST_COMPILE_OBJS))
 out/libskia.a: Makefile $(OBJ_LIST) $(JUST_COMPILE_OBJS)
 	$(HIDE)$(AR) ru $@ $(OBJ_LIST)
 	$(HIDE)ranlib $@
+
+
+# we let tests cheat and see private headers, so we can unittest modules
+C_INCLUDES += -Isrc/core
+
+include tests/tests_files.mk
+TESTS_SRCS := $(addprefix tests/, $(SOURCE))
+
+TESTS_OBJS := $(TESTS_SRCS:.cpp=.o)
+TESTS_OBJS := $(addprefix out/, $(TESTS_OBJS))
+
+tests: $(TESTS_OBJS) out/libskia.a
+	@echo "linking tests..."
+	$(HIDE)$(GPP) $(TESTS_OBJS) out/libskia.a -o out/tests/tests lib/libz.a -T bionic.ld
+	cp out/tests/tests ~/ucore_plus/ucore/src/user-ucore/_initial/
 
 .PHONY: all
 all: $ bench gm skimage tests skhello

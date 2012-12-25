@@ -3,3 +3,83 @@ Skia is a complete 2D graphic library for drawing Text, Geometries, and Images.
 - 3x3 matrices w/ perspective
 - antialiasing, transparency, filters
 - shaders, xfermodes, maskfilters, patheffects
+
+########################Build for UCore static lib##############################
+
+#need tools/arm-linux-androideabi-4.6 with bionicClib
+
+export PATH=~/tools/arm-linux-androideabi-4.6/bin:$PATH
+export PATH=~/tools/android-sdk-linux/tools:$PATH
+
+cd ..../ucore-arm-skia/
+make -j4
+
+#get out/libskia.a
+
+cd Sample/
+#change the path of UCore in Makefile
+#"cp test ~/ucore_plus/ucore/src/user-ucore/_initial/"
+
+make
+
+#get test and cp test to the UCore
+
+cd ..../ucore_plus/ucore/
+
+make clean
+make ARCH=arm BOARD=goldfishv7 menuconfig
+#open Bionic option and exit. Then copy the bionic file to the /ucore/src/user-ucore/_initial/
+
+make sfsimg
+make -j4
+emulator -avd ucore -kernel obj/kernel/kernel-arm.elf -qemu -serial stdio
+
+#run with goldfish
+
+ls
+./test
+#type Enter
+ls
+
+#done
+#for more information please open the file Sample/main.cpp
+
+#Run the default 30 tests "/out/tests/tests"
+
+#ERROR LIST  9 21 28 30
+[9/30] Region...
+0x7e99022 0x6fe65000 0 0 5
+kernel panic at vmm.c:1023:
+    assertion failed: 0
+Welcome to the kernel debug monitor!!
+Type 'help' for a list of commands.
+K>
+
+[21/30] Flate...
+data page fault at (0x07b30000) 0xdeadbaad 0x805: Section-Translation W PID=5
+trapframe at 0x7b24fb0
+  r00  0x00000043
+  r01  0x6fffd3e8
+  r02  0x308a7b28
+  r03  0xdeadbaad
+  r04  0x6febefdc
+  r05  0x0000029a
+  r06  0x000003ff
+  r07  0x6fffde90
+  r08  0x00000001
+  r09  0x6fffda58
+  r10  0x00000400
+  fp   0x6fffd658
+  ip   0x6fe8a0fd
+  usr_lr   0x6fe8cb69
+  sp   0x6fffd408
+  lr   0x6fe638da
+  spsr 0x20000070 User
+  trap 0x00000004 Data abort
+  err  0x00000805
+Process 5 killed by kernel.
+error: -37 - Process is killed
+
+[28/30] BlitRow...
+[30/30] BitmapCopy...
+#There must be something error, I can't wait until them over. Maybe they're TIMEOUT
