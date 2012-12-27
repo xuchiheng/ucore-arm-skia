@@ -14,7 +14,7 @@ export PATH=~/tools/android-sdk-linux/tools:$PATH
 cd ..../ucore-arm-skia/
 make -j4
 
-#get out/libskia.a
+#creating out/libskia.a
 
 cd Sample/
 #change the path of UCore in Makefile
