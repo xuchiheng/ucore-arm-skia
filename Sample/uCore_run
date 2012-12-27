@@ -1,3 +1,0 @@
-make sfsimg
-make kernel
-emulator -avd ucore -kernel obj/kernel/kernel-arm.elf -qemu -serial stdio

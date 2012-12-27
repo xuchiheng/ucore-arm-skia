@@ -21,8 +21,8 @@ CFLAGS = -g
 SRC_LIST := main.cpp
  
 .PHONY: all
-test: $(SRC_LIST) ../out/libskia.a ../lib/libpng.a ../lib/libz.a
-	$(GPP) $(C_INCLUDES) $(CFLAGS)  $^  -o $@ -T ../bionic.ld
+test: $(SRC_LIST) ../out/libskia.a libpng.a libz.a
+	$(GPP) $(C_INCLUDES) $(CFLAGS)  $^  -o $@ -T bionic.ld
 	cp test ~/ucore_plus/ucore/src/user-ucore/_initial/
 
 .PHONY: check

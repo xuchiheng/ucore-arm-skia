@@ -2,7 +2,9 @@
 #include "SkDevice.h"
 #include "SkPaint.h"
 #include "SkRect.h"
-#include "SkImageEncoder.h"
+#include "SkStream.h"
+#include "SkImageDecoder.h"
+#include "SkCamera.h"
 #include <stdio.h>
 
 #include <stdio.h>
@@ -18,7 +20,15 @@
 #include <sys/ioctl.h>
 
 
+SkBitmap *pskBitmap;  
+SkCanvas *pskCanvas;  
+SkBitmap *bkBitmap;//背景图片  
+SkRect   g_rtImg;// 图片最初按钮。  
+SkRect   g_rtClip;//矩阵裁剪用 ，做图片旋转时，每次旋转时的裁剪会用到上一次的裁剪范围。 
 using namespace std;
+
+#define BACKGROUND "background.png"
+#define IMAGE "apple.png"
 
 #ifndef __u32
 #define __u32 uint32_t
@@ -78,7 +88,6 @@ struct fb_var_screeninfo {
 #define GetPixelR(x) ((x>>16)&((1<<8)-1))
 #define GetPixelG(x) ((x>>8)&((1<<8)-1))
 #define GetPixelB(x) ((x>>0)&((1<<8)-1))
-
 static void build_pixel_map(SkBitmap &bitmap){
   int fd;
   struct fb_var_screeninfo vinfo;
@@ -93,11 +102,11 @@ static void build_pixel_map(SkBitmap &bitmap){
 //以下打开framebuffer并映射内存
     fd = open("fb0:", O_RDWR);
     if (ioctl(fd, FBIOGET_VSCREENINFO, &vinfo) <0) {
-    	cprintf("ioctl error\n");
-    	bitmap.setConfig(SkBitmap::kRGB_565_Config, w, h);
-    	bitmap.allocPixels();
+        cprintf("ioctl error\n");
+        bitmap.setConfig(SkBitmap::kRGB_565_Config, w, h);
+        bitmap.allocPixels();
         bitmap.eraseColor(0);
-    	return;
+        return;
     } else {
       cprintf("fb0 vinfo: %dx%d, %dbpp\n", vinfo.xres, vinfo.yres, vinfo.bits_per_pixel);
       w = vinfo.xres;
@@ -105,10 +114,6 @@ static void build_pixel_map(SkBitmap &bitmap){
     }
     close(fd);
     bitmap.setConfig(SkBitmap::kRGB_565_Config, w, h);
-
-    
-   // assert(logo_height < h && logo_width < w);
-
     int size = w*h*vinfo.bits_per_pixel/8;
 
     fd = open("fb0:", O_RDWR);
@@ -117,79 +122,103 @@ static void build_pixel_map(SkBitmap &bitmap){
     cprintf("linux_mmap %08x\n", buf);
 
     bitmap.setPixels(buf);
-    //close(fd);
-
-    //unsigned short* buf = (unsigned short*)malloc(size);
-    //assert(buf);
-//清屏
     memset(buf, 0x1f, size);
-    /*unsigned short color;
-    for(int i=0;i<logo_height;i++){
-      for(int j=0;j<logo_width;j++){
-    	  unsigned short pixel=bitmap.getColor(i,j);
-        color = ((GetPixelR(pixel)>>3)<<11)
-          |((GetPixelG(pixel)>>2)<<5)
-          |((GetPixelB(pixel)>>3));
-        buf[i*w + j] = *bitmap.getAddr16(i,j);
-      }
-    }*/
 }
 
+void MyInitBkImage(char *filename)  
+{  
+    SkFILEStream stream(filename);  
+    SkImageDecoder * coder = SkImageDecoder::Factory(&stream);  
+    if (coder)  
+    {  
+        bkBitmap = new SkBitmap();  
+        coder->decode(&stream,bkBitmap,SkBitmap::kRGB_565_Config,SkImageDecoder::kDecodePixels_Mode);
+    }  
+}  
+
+//整体初始化  
+void MyInit()  
+{  
+    pskBitmap = new SkBitmap(); 
+    build_pixel_map(*pskBitmap); 
+    pskCanvas = new SkCanvas();  
+    pskCanvas->setBitmapDevice(*pskBitmap); 
+    MyInitBkImage(BACKGROUND);  
+    g_rtImg.setXYWH(140,0,200,246);  
+}  
+
+void DrawImage(char * filename,SkCanvas *canvas, SkRect rt, SkPaint *paint)  
+{  
+    SkFILEStream stream(filename);  
+    SkImageDecoder* coder = SkImageDecoder::Factory(&stream);  
+    SkBitmap *bitmap;  
+    if (coder)  
+    {  
+        //printf(" file %s code success\n",filename);  
+        bitmap = new SkBitmap();  
+        coder->decode(&stream, bitmap, SkBitmap::kRGB_565_Config,  
+        SkImageDecoder::kDecodePixels_Mode);  
+    }  
+    else 
+    {  
+        printf(" file %s code fail\n",filename);  
+        return;  
+    }  
+    canvas->drawBitmap(*bitmap,rt.fLeft, rt.fTop);   
+    delete bitmap;  
+    return;  
+}  
+
+//画背景  
+void DrawBKImage()  
+{  
+    SkIRect rt;  
+    rt.setXYWH(0,0,480,800);  
+    pskCanvas->drawBitmap(*bkBitmap,rt.fLeft,rt.fTop);   
+}  
+
+//画图片filename，效果使其绕Y轴旋转rotateY角度，调用DrawImage()  
+void DrawRotateYImage(char * filename,int rotateY,SkRect rtImg)  
+{  
+    SkRect rtClip = g_rtClip;//保留上次裁剪范围  
+    pskCanvas->resetMatrix();  
+    SkMatrix matrix;  
+    Sk3DView    sk3DView;  
+    sk3DView.rotateY(rotateY); //绕Y轴旋转  
+    sk3DView.getMatrix(&matrix);  
+    matrix.preTranslate(-(rtImg.fLeft+rtImg.width()/2), 0);  
+    matrix.postTranslate((rtImg.fLeft+rtImg.width()/2), 0);  
+    matrix.mapRect(&g_rtClip,rtImg); //两个参数都是SkRect类型  
+    //matrix.mapRect 作用：src经过matrix变化，形成dst  
+    //图片的最初范围经过matrix变化(每次绕Y轴旋转角度不一样)，得出新的裁剪范围  
+    rtClip.join(g_rtClip);              //计算最终裁剪范围  
+    g_rtClip = rtClip ;                 //保存裁剪范围,供下次计算最终裁剪范围  
+    DrawBKImage();//此处画背景，不然会保留不同ratateY角度图片的痕迹  ，放在此处 画背景用时多 ，为4或者3，  
+    pskCanvas->save();  
+    pskCanvas->clipRect(rtClip);//矩阵裁剪  
+    //DrawBKImage();//此处画背景，不然会保留不同ratateY角度图片的痕迹    放在此处 画背景用时小 ，为0或者1，  
+    //具体画的内容，与pskCanvas画布的裁剪有关系？  
+    //pskCanvas->save(SkCanvas::kMatrix_SaveFlag); 可以去掉，之前已经有pskCanvas->save();  
+    pskCanvas->concat(matrix);  
+    DrawImage(filename,pskCanvas,rtImg,NULL);  
+    //此处的位置参数须是图片原始位置，不能是裁剪范围，否则显示的位置偏离  
+    //pskCanvas->restore();     与save对应  
+    pskCanvas->restore();  
+    //pskCanvas->resetMatrix();  
+}  
 
 int main()
 {
-       // Declare a raster bitmap, which has an integer width and height,
-       // and a format (config), and a pointer to the actual pixels.
-       // Bitmaps can be drawn into a SkCanvas, but they are also used to
-       // specify the target of a SkCanvas' drawing operations.
-		printf("start\n");
-       SkBitmap bitmap;
-       build_pixel_map(bitmap);
-
-       // A Canvas encapsulates all of the state about drawing into a
-       // device (bitmap).  This includes a reference to the device itself,
-       // and a stack of matrix/clip values. For any given draw call (e.g.
-       // drawRect), the geometry of the object being drawn is transformed
-       // by the concatenation of all the matrices in the stack. The
-       // transformed geometry is clipped by the intersection of all of the
-// clips in the stack.
-       SkCanvas canvas(bitmap);
-
-       // SkPaint class holds the style and color information about how to
-       // draw geometries, text and bitmaps.
-       SkPaint paint;
-       // SkIRect holds four 32 bit integer coordinates for a rectangle.
-       SkRect r;
-       paint.setARGB(255, 255, 0, 0);
-       r.set(25, 25, 145, 145);
-       canvas.drawRect(r, paint);
-       sleep(1);
-
-       paint.setARGB(255, 0, 255, 0);
-       r.offset(20, 20);
-       canvas.drawRect(r, paint);
-       sleep(1);
-
-       paint.setARGB(255, 0, 0, 255);
-       r.offset(20, 20);
-       canvas.drawRect(r, paint);
-       sleep(1);
-
-       paint.setARGB(255, 255, 255, 255);
-       //canvas.drawText("Hello, world", 12, 10, 10, paint);
-       /*for (int i=0;i<20;i++) {
-           for (int j=0;j<20;j++) {
-        	   u_int32_t ans=bitmap.getColor(i,j);
-        	   printf("%d",((ans >> 0) & (( 1 << 8 ) - 1)));
-           }
-           printf("\n");
-       }*/
-
-//	SkImageEncoder is the base class for encoding compressed images
-//	from a specific SkBitmap.
-	printf("%d\n", SkImageEncoder::EncodeFile("snapshot.png", bitmap,
-		SkImageEncoder::kPNG_Type,
-		100));
-	getchar();
-       return 0;
+    printf("start\n");
+    MyInit();
+    DrawBKImage();
+    int i=0;
+    while (1)
+    {  
+        i+=5;
+        DrawRotateYImage(IMAGE,i,g_rtImg);  
+        usleep(200000);
+        printf("%d\n",i);
+    }  
+    return 0;
 }
